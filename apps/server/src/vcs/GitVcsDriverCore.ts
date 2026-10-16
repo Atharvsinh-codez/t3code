@@ -2152,7 +2152,8 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
       yield* runGit(
         "GitVcsDriver.commit.addSelected",
         cwd,
-        [...config, "--literal-pathspecs", "add", "-A", "--", ...filePaths],
+        // Status paths are repository-relative, while cwd can be a subdirectory.
+        [...config, "add", "-A", "--", ...filePaths.map((file) => `:(top,literal)${file}`)],
         env ? { env } : {},
       );
     } else {
