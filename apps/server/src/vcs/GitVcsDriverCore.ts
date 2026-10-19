@@ -1318,7 +1318,12 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
       ],
       { concurrency: 2 },
     );
-    const worktreeRootOutput = worktreeRootResult.stdout.trim();
+    // Git terminates --show-toplevel with exactly one "\n" on every platform (stdout is
+    // binary mode on Windows). Whitespace before it belongs to the path and must survive,
+    // because this root becomes the editor target for every repository-relative status path.
+    const worktreeRootOutput = worktreeRootResult.stdout.endsWith("\n")
+      ? worktreeRootResult.stdout.slice(0, -1)
+      : worktreeRootResult.stdout;
     const worktreeRoot =
       worktreeRootResult.exitCode === 0 && worktreeRootOutput.length > 0
         ? path.normalize(

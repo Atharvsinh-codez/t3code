@@ -2672,7 +2672,10 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
 
     it.effect("commits selected files from a nested project directory", () =>
       Effect.gen(function* () {
-        const cwd = yield* makeTmpDir();
+        const path = yield* Path.Path;
+        // A root basename ending in whitespace catches a root lookup that trims Git's output.
+        const cwd = path.join(yield* makeTmpDir(), "repo ");
+        yield* (yield* FileSystem.FileSystem).makeDirectory(cwd);
         yield* initRepoWithCommit(cwd);
         yield* writeTextFile(cwd, "nested/tracked.txt", "one\n");
         yield* git(cwd, ["add", "."]);
@@ -2680,7 +2683,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         yield* writeTextFile(cwd, "nested/tracked.txt", "one\ntwo\n");
         yield* writeTextFile(cwd, "nested/new.txt", "new\n");
         yield* writeTextFile(cwd, "README.md", "# test\nleft out\n");
-        const nestedCwd = (yield* Path.Path).join(cwd, "nested");
+        const nestedCwd = path.join(cwd, "nested");
         const driver = yield* GitVcsDriver.GitVcsDriver;
 
         const status = yield* driver.statusDetails(nestedCwd);
@@ -2690,10 +2693,12 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           { path: "nested/tracked.txt", insertions: 1, deletions: 0 },
           { path: "README.md", insertions: 1, deletions: 0 },
         ]);
-        // The root is what the paths above are relative to, not the nested cwd.
+        // The root is what the paths above are relative to, not the nested cwd, and it keeps
+        // the trailing space so the resolved editor target is the file that exists.
+        assert.equal(status.workingTree.rootPath, NodeFS.realpathSync.native(cwd));
         assert.equal(
-          NodeFS.realpathSync.native(status.workingTree.rootPath!),
-          NodeFS.realpathSync.native(cwd),
+          NodeFS.existsSync(path.join(status.workingTree.rootPath!, "nested", "new.txt")),
+          true,
         );
         yield* driver.commit(nestedCwd, "Commit nested selection", "", {
           stage: { filePaths: ["nested/new.txt", "nested/tracked.txt"] },
