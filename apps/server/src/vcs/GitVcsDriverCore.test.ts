@@ -2690,10 +2690,42 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           { path: "nested/tracked.txt", insertions: 1, deletions: 0 },
           { path: "README.md", insertions: 1, deletions: 0 },
         ]);
+        // The root is what the paths above are relative to, not the nested cwd.
+        assert.equal(
+          NodeFS.realpathSync.native(status.workingTree.rootPath!),
+          NodeFS.realpathSync.native(cwd),
+        );
         yield* driver.commit(nestedCwd, "Commit nested selection", "", {
           stage: { filePaths: ["nested/new.txt", "nested/tracked.txt"] },
         });
         assert.equal(yield* git(cwd, ["status", "--porcelain"]), "M README.md");
+      }),
+    );
+
+    it.effect("reports the linked worktree as the root of a nested directory in it", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTmpDir();
+        const worktreePath = yield* makeTmpDir("git-vcs-driver-linked-");
+        yield* initRepoWithCommit(cwd);
+        yield* writeTextFile(cwd, "nested/tracked.txt", "one\n");
+        yield* git(cwd, ["add", "."]);
+        yield* git(cwd, ["commit", "-m", "add nested file"]);
+        yield* git(cwd, ["worktree", "add", "-b", "feature/linked", worktreePath]);
+        yield* writeTextFile(worktreePath, "nested/tracked.txt", "one\ntwo\n");
+        yield* writeTextFile(worktreePath, "nested/new.txt", "new\n");
+        const nestedCwd = (yield* Path.Path).join(worktreePath, "nested");
+        const driver = yield* GitVcsDriver.GitVcsDriver;
+
+        const status = yield* driver.statusDetails(nestedCwd);
+
+        assert.deepEqual(status.workingTree.files, [
+          { path: "nested/new.txt", insertions: 0, deletions: 0 },
+          { path: "nested/tracked.txt", insertions: 1, deletions: 0 },
+        ]);
+        assert.equal(
+          NodeFS.realpathSync.native(status.workingTree.rootPath!),
+          NodeFS.realpathSync.native(worktreePath),
+        );
       }),
     );
 

@@ -2099,6 +2099,7 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
       upstreamRef,
       hasWorkingTreeChanges,
       workingTree: {
+        ...(repositoryPaths?.worktreeRoot ? { rootPath: repositoryPaths.worktreeRoot } : {}),
         files,
         insertions,
         deletions,
